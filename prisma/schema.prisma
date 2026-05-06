@@ -1,3 +1,21 @@
+// =============================================================================
+// NexoJurídico — Prisma Schema
+// Fuente de verdad: docs/PROJECT.md (Sección 8: Modelo de Datos)
+// =============================================================================
+// Convenciones:
+//   - Modelos en PascalCase (TypeScript) — tablas en snake_case (PostgreSQL)
+//     vía @@map y @map.
+//   - IDs UUID donde el doc lo declara explícitamente (tenants, users, cases).
+//     Resto: Int autoincrement.
+//   - Multi-tenant: tenant_id presente en tablas raíz (users, cases,
+//     audit_logs); las tablas hijas heredan tenancy vía la FK al padre.
+//   - Soft delete: deleted_at en User y Case (las únicas que el doc declara
+//     con deleted_at).
+// -----------------------------------------------------------------------------
+// Índices avanzados (parciales / GIN) NO se declaran aquí — Prisma no los
+// expresa en schema.prisma. Ver: prisma/migrations/manual_indexes.sql
+// =============================================================================
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -6,8 +24,389 @@ datasource db {
   provider = "postgresql"
 }
 
-model TestConnection {
-  id        Int      @id @default(autoincrement())
-  name      String
-  createdAt DateTime @default(now())
+// =============================================================================
+// ENUMS
+// =============================================================================
+
+enum UserRole {
+  client
+  lawyer
+  admin
+}
+
+enum ValidationStatus {
+  pending
+  approved
+  rejected
+  suspended
+}
+
+enum CaseStatus {
+  borrador
+  en_cola
+  asignado
+  en_negociacion
+  cerrado_ganado
+  cerrado_perdido
+  cancelado
+  huerfano
+}
+
+enum UrgencyLevel {
+  alta
+  media
+  baja
+}
+
+enum PreferredContact {
+  email
+  phone
+  whatsapp
+}
+
+// =============================================================================
+// TENANTS — multi-tenancy raíz
+// =============================================================================
+
+model Tenant {
+  id            String   @id @default(uuid()) @db.Uuid
+  slug          String   @unique
+  name          String
+  logoUrl       String?  @map("logo_url")
+  primaryColor  String?  @map("primary_color")
+  contactEmail  String   @map("contact_email")
+  isActive      Boolean  @default(true) @map("is_active")
+  plan          String   @default("pilot")
+  settings      Json?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  users     User[]
+  cases     Case[]
+  auditLogs AuditLog[]
+
+  @@map("tenants")
+}
+
+// =============================================================================
+// USERS — todos los roles (cliente / abogado / admin)
+// =============================================================================
+
+model User {
+  id              String    @id @default(uuid()) @db.Uuid
+  tenantId        String    @map("tenant_id") @db.Uuid
+  email           String
+  passwordHash    String    @map("password_hash")
+  role            UserRole
+  firstName       String    @map("first_name")
+  lastName        String    @map("last_name")
+  rut             String?
+  phone           String?
+  avatarUrl       String?   @map("avatar_url")
+  emailVerifiedAt DateTime? @map("email_verified_at")
+  isActive        Boolean   @default(true) @map("is_active")
+  lastLoginAt     DateTime? @map("last_login_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  clientProfile ClientProfile?
+  lawyerProfile LawyerProfile? @relation("LawyerProfileSelf")
+
+  // El admin que validó a este abogado (recíproco de LawyerProfile.validatedBy).
+  validatedLawyerProfiles LawyerProfile[] @relation("LawyerProfileValidator")
+
+  cases               Case[]              @relation("CaseClient")
+  caseAssignments     CaseAssignment[]
+  caseStatusChanges   CaseStatusHistory[]
+  notifications       Notification[]
+  sessions            Session[]
+  auditLogs           AuditLog[]
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+  @@index([role])
+  @@map("users")
+}
+
+// =============================================================================
+// CLIENT_PROFILES — datos extra del ciudadano
+// =============================================================================
+
+model ClientProfile {
+  userId           String           @id @map("user_id") @db.Uuid
+  region           String
+  comuna           String
+  address          String?
+  preferredContact PreferredContact @default(email) @map("preferred_contact")
+  contactSchedule  String?          @map("contact_schedule")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("client_profiles")
+}
+
+// =============================================================================
+// LAWYER_PROFILES — datos extra del abogado
+// =============================================================================
+
+model LawyerProfile {
+  userId            String           @id @map("user_id") @db.Uuid
+  barNumber         String?          @map("bar_number")
+  certificatesUrl   String?          @map("certificates_url")
+  bio               String?
+  yearsExperience   Int?             @map("years_experience")
+  feeRange          String?          @map("fee_range")
+  isAvailable       Boolean          @default(false) @map("is_available")
+  validationStatus  ValidationStatus @default(pending) @map("validation_status")
+  validatedAt       DateTime?        @map("validated_at")
+  validatedBy       String?          @map("validated_by") @db.Uuid
+  rejectionReason   String?          @map("rejection_reason")
+  ratingAvg         Float?           @map("rating_avg")
+  casesTakenCount   Int              @default(0) @map("cases_taken_count")
+  casesWonCount     Int              @default(0) @map("cases_won_count")
+
+  user      User  @relation("LawyerProfileSelf", fields: [userId], references: [id], onDelete: Cascade)
+  validator User? @relation("LawyerProfileValidator", fields: [validatedBy], references: [id], onDelete: SetNull)
+
+  specialties LawyerSpecialty[]
+  coverage    LawyerCoverage[]
+
+  @@index([validationStatus]) // idx_lawyer_validation (§8.3)
+  @@map("lawyer_profiles")
+}
+
+// =============================================================================
+// SPECIALTIES — catálogo (9 inicial, gestionable por admin)
+// =============================================================================
+
+model Specialty {
+  id           Int      @id @default(autoincrement())
+  code         String   @unique
+  name         String
+  description  String?
+  icon         String?
+  displayOrder Int      @map("display_order")
+  isActive     Boolean  @default(true) @map("is_active")
+
+  lawyers   LawyerSpecialty[]
+  templates CaseFormTemplate[]
+  cases     Case[]
+
+  @@map("specialties")
+}
+
+// =============================================================================
+// LAWYER_SPECIALTIES — N:M abogado ↔ especialidad
+// =============================================================================
+
+model LawyerSpecialty {
+  lawyerId    String  @map("lawyer_id") @db.Uuid
+  specialtyId Int     @map("specialty_id")
+  isPrimary   Boolean @default(false) @map("is_primary")
+  yearsInArea Int?    @map("years_in_area")
+
+  lawyer    LawyerProfile @relation(fields: [lawyerId], references: [userId], onDelete: Cascade)
+  specialty Specialty     @relation(fields: [specialtyId], references: [id], onDelete: Restrict)
+
+  @@id([lawyerId, specialtyId])
+  @@index([specialtyId])
+  @@map("lawyer_specialties")
+}
+
+// =============================================================================
+// LAWYER_COVERAGE — zonas geográficas que atiende cada abogado
+// comuna NULL = toda la región (§8.2)
+// =============================================================================
+
+model LawyerCoverage {
+  id       Int     @id @default(autoincrement())
+  lawyerId String  @map("lawyer_id") @db.Uuid
+  region   String
+  comuna   String?
+
+  lawyer LawyerProfile @relation(fields: [lawyerId], references: [userId], onDelete: Cascade)
+
+  @@index([lawyerId])
+  @@index([region, comuna])
+  @@map("lawyer_coverage")
+}
+
+// =============================================================================
+// CASE_FORM_TEMPLATES — JSON Schema dinámico por especialidad
+// =============================================================================
+
+model CaseFormTemplate {
+  id           Int     @id @default(autoincrement())
+  specialtyId  Int     @map("specialty_id")
+  version      Int
+  schema       Json
+  urgencyRules Json    @map("urgency_rules")
+  isActive     Boolean @default(true) @map("is_active")
+
+  specialty Specialty @relation(fields: [specialtyId], references: [id], onDelete: Restrict)
+  cases     Case[]
+
+  @@unique([specialtyId, version])
+  @@index([specialtyId, isActive])
+  @@map("case_form_templates")
+}
+
+// =============================================================================
+// CASES — tabla central
+// responses JSONB: respuestas del formulario dinámico
+// =============================================================================
+
+model Case {
+  id            String       @id @default(uuid()) @db.Uuid
+  tenantId      String       @map("tenant_id") @db.Uuid
+  clientId      String       @map("client_id") @db.Uuid
+  specialtyId   Int          @map("specialty_id")
+  templateId    Int          @map("template_id")
+  title         String
+  summary       String?
+  responses     Json
+  urgency       UrgencyLevel?
+  urgencyScore  Int?         @map("urgency_score")
+  region        String?
+  comuna        String?
+  status        CaseStatus   @default(borrador)
+  contentHash   String?      @map("content_hash")
+  publishedAt   DateTime?    @map("published_at")
+  assignedAt    DateTime?    @map("assigned_at")
+  closedAt      DateTime?    @map("closed_at")
+  orphanAt      DateTime?    @map("orphan_at")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+  deletedAt     DateTime?    @map("deleted_at")
+
+  tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  client    User             @relation("CaseClient", fields: [clientId], references: [id], onDelete: Restrict)
+  specialty Specialty        @relation(fields: [specialtyId], references: [id], onDelete: Restrict)
+  template  CaseFormTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
+
+  assignments    CaseAssignment[]
+  statusHistory  CaseStatusHistory[]
+
+  @@index([tenantId])
+  @@index([clientId])
+  @@index([specialtyId])
+  @@index([status])
+  // NOTA: Los índices críticos del feed y de detección de duplicados
+  // (idx_cases_specialty_urgency, idx_cases_content_hash, idx_cases_responses GIN)
+  // están en prisma/migrations/manual_indexes.sql
+  @@map("cases")
+}
+
+// =============================================================================
+// CASE_ASSIGNMENTS — quién tomó el caso (histórico)
+// =============================================================================
+
+model CaseAssignment {
+  id         Int       @id @default(autoincrement())
+  caseId     String    @map("case_id") @db.Uuid
+  lawyerId   String    @map("lawyer_id") @db.Uuid
+  assignedAt DateTime  @default(now()) @map("assigned_at")
+  releasedAt DateTime? @map("released_at")
+  isActive   Boolean   @default(true) @map("is_active")
+
+  case   Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  lawyer User @relation(fields: [lawyerId], references: [id], onDelete: Restrict)
+
+  @@index([caseId])
+  @@index([lawyerId])
+  @@index([lawyerId, isActive])
+  @@map("case_assignments")
+}
+
+// =============================================================================
+// CASE_STATUS_HISTORY — audit log del flujo de estados (§8.4: trigger pendiente)
+// =============================================================================
+
+model CaseStatusHistory {
+  id         Int        @id @default(autoincrement())
+  caseId     String     @map("case_id") @db.Uuid
+  fromStatus CaseStatus? @map("from_status")
+  toStatus   CaseStatus @map("to_status")
+  changedBy  String     @map("changed_by") @db.Uuid
+  reason     String?
+  metadata   Json?
+  createdAt  DateTime   @default(now()) @map("created_at")
+
+  case      Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  changedByUser User @relation(fields: [changedBy], references: [id], onDelete: Restrict)
+
+  @@index([caseId])
+  @@index([changedBy])
+  @@map("case_status_history")
+}
+
+// =============================================================================
+// NOTIFICATIONS
+// =============================================================================
+
+model Notification {
+  id        BigInt    @id @default(autoincrement())
+  userId    String    @map("user_id") @db.Uuid
+  type      String
+  title     String
+  message   String
+  link      String?
+  metadata  Json?
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  // NOTA: idx_notifications_user_unread (parcial WHERE read_at IS NULL)
+  // está en prisma/migrations/manual_indexes.sql
+  @@map("notifications")
+}
+
+// =============================================================================
+// SESSIONS — refresh tokens (auth flow §9.4)
+// =============================================================================
+
+model Session {
+  id           BigInt    @id @default(autoincrement())
+  userId       String    @map("user_id") @db.Uuid
+  refreshToken String    @unique @map("refresh_token")
+  userAgent    String?   @map("user_agent")
+  ipAddress    String?   @map("ip_address")
+  expiresAt    DateTime  @map("expires_at")
+  revokedAt    DateTime? @map("revoked_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+// =============================================================================
+// AUDIT_LOGS — acciones críticas
+// =============================================================================
+
+model AuditLog {
+  id         BigInt   @id @default(autoincrement())
+  tenantId   String   @map("tenant_id") @db.Uuid
+  actorId    String   @map("actor_id") @db.Uuid
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  metadata   Json?
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  actor  User   @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, createdAt])
+  @@index([actorId])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
 }
