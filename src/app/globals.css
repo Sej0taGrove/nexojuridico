@@ -1,0 +1,182 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* =============================================================================
+ * NexoJurídico — Design Tokens
+ * Fuente de verdad: docs/PROJECT.md §7 + Stitch DESIGN.md
+ * Tailwind v4: los tokens declarados en @theme generan utilities
+ * (bg-navy-600, text-gray-700, shadow-focus, etc.).
+ * ============================================================================= */
+
+@theme {
+  /* ---- Tipografía -------------------------------------------------------- */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+  /* ---- Paleta primaria (Navy) ------------------------------------------- */
+  --color-navy-50: #e6eef5;
+  --color-navy-100: #cce0ec;
+  --color-navy-200: #99c0d9;
+  --color-navy-300: #6699bd;
+  --color-navy-400: #336fa1;
+  --color-navy-500: #034f8c;
+  --color-navy-600: #013565;
+  --color-navy-700: #012a52;
+  --color-navy-800: #011f3d;
+  --color-navy-900: #001428;
+
+  /* ---- Neutros ---------------------------------------------------------- */
+  --color-gray-50: #fafbfc;
+  --color-gray-100: #f4f6f8;
+  --color-gray-200: #e5e9ee;
+  --color-gray-300: #cbd2da;
+  --color-gray-400: #9aa4b2;
+  --color-gray-500: #6b7585;
+  --color-gray-600: #4a5462;
+  --color-gray-700: #2f3744;
+  --color-gray-800: #1c2330;
+  --color-gray-900: #0f1420;
+
+  /* ---- Funcionales: Success (verde, urgencia BAJA) --------------------- */
+  --color-success-50: #ecfdf3;
+  --color-success-100: #d1fadf;
+  --color-success-500: #12b76a;
+  --color-success-700: #027a48;
+
+  /* ---- Funcionales: Warning (ámbar, urgencia MEDIA) -------------------- */
+  --color-warning-50: #fffaeb;
+  --color-warning-100: #fef0c7;
+  --color-warning-500: #f79009;
+  --color-warning-700: #b54708;
+
+  /* ---- Funcionales: Danger (rojo, urgencia ALTA / errores) ------------- */
+  --color-danger-50: #fef3f2;
+  --color-danger-100: #fee4e2;
+  --color-danger-500: #f04438;
+  --color-danger-700: #b42318;
+
+  /* ---- Funcionales: Info (azul cielo, ≠ marca, tooltips) --------------- */
+  --color-info-50: #eff8ff;
+  --color-info-100: #d1e9ff;
+  --color-info-500: #2e90fa;
+  --color-info-700: #175cd3;
+
+  /* ---- Radios (default lg = 8px para botones y cards) ------------------ */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+
+  /* ---- Sombras (sin negro puro, tono slate) ---------------------------- */
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.08);
+  --shadow-md: 0 4px 6px rgba(15, 23, 42, 0.07);
+  --shadow-lg: 0 10px 15px rgba(15, 23, 42, 0.1);
+  --shadow-xl: 0 20px 25px rgba(15, 23, 42, 0.12);
+  --shadow-focus: 0 0 0 4px rgba(1, 53, 101, 0.15);
+}
+
+/* =============================================================================
+ * Mapeo a variables shadcn/ui — para que Button, Input, etc. consuman
+ * automáticamente la paleta navy sin necesidad de overrides en cada uso.
+ * ============================================================================= */
+
+:root {
+  --background: #ffffff;
+  --foreground: #0f1420; /* gray-900 */
+
+  --card: #ffffff;
+  --card-foreground: #0f1420;
+
+  --popover: #ffffff;
+  --popover-foreground: #0f1420;
+
+  --primary: #013565; /* navy-600 */
+  --primary-foreground: #ffffff;
+
+  --secondary: #f4f6f8; /* gray-100 */
+  --secondary-foreground: #2f3744; /* gray-700 */
+
+  --muted: #f4f6f8; /* gray-100 */
+  --muted-foreground: #6b7585; /* gray-500 */
+
+  --accent: #e6eef5; /* navy-50 */
+  --accent-foreground: #012a52; /* navy-700 */
+
+  --destructive: #f04438; /* danger-500 */
+  --destructive-foreground: #ffffff;
+
+  --border: #e5e9ee; /* gray-200 */
+  --input: #cbd2da; /* gray-300 */
+  --ring: #034f8c; /* navy-500 — focus ring */
+
+  --radius: 0.5rem; /* 8px — default lg */
+
+  --sidebar: #fafbfc; /* gray-50 */
+  --sidebar-foreground: #2f3744;
+  --sidebar-primary: #013565;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e6eef5;
+  --sidebar-accent-foreground: #012a52;
+  --sidebar-border: #e5e9ee;
+  --sidebar-ring: #034f8c;
+
+  --chart-1: #013565;
+  --chart-2: #034f8c;
+  --chart-3: #336fa1;
+  --chart-4: #6699bd;
+  --chart-5: #99c0d9;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    font-family: var(--font-sans);
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-feature-settings: "tnum"; /* números tabulares para dashboards */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
