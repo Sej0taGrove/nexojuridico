@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
@@ -24,6 +25,7 @@ import {
 } from "@/server/validators/auth.schema";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
 
   const form = useForm<LoginInput>({
@@ -35,11 +37,33 @@ export default function LoginPage() {
   const { isSubmitting } = form.formState;
 
   async function onSubmit(data: LoginInput) {
-    await new Promise((resolve) => setTimeout(resolve, 600));
-    console.log("Login submitted:", data);
-    toast.success("Sesión iniciada (mock)", {
-      description: `Bienvenido, ${data.email}`,
-    });
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        toast.error(json.error ?? "No se pudo iniciar sesión");
+        return;
+      }
+
+      const role = json.data.user.role as "client" | "lawyer" | "admin";
+      const dest =
+        role === "client"
+          ? "/dashboard"
+          : role === "lawyer"
+            ? "/feed"
+            : "/admin";
+
+      toast.success("Sesión iniciada");
+      router.push(dest);
+      router.refresh();
+    } catch {
+      toast.error("Error de red. Intenta de nuevo.");
+    }
   }
 
   return (

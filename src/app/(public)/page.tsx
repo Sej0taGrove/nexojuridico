@@ -1,22 +1,10 @@
 import Link from "next/link";
-import {
-  Briefcase,
-  Building2,
-  FilePen,
-  FileText,
-  Gavel,
-  Globe,
-  Home as HomeIcon,
-  MessageCircle,
-  PiggyBank,
-  Scale,
-  SearchCheck,
-  Users,
-} from "lucide-react";
+import { FilePen, MessageCircle, SearchCheck } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { HowItWorksStep } from "@/components/shared/HowItWorksStep";
 import { SpecialtyCard } from "@/components/shared/SpecialtyCard";
+import { SPECIALTIES } from "@/lib/constants/specialties";
 
 const HOW_IT_WORKS = [
   {
@@ -36,54 +24,6 @@ const HOW_IT_WORKS = [
     title: "Un abogado te contacta",
     description:
       "Recibe asesoría directa de un profesional validado, listo para tomar tu caso.",
-  },
-] as const;
-
-const SPECIALTIES = [
-  {
-    icon: Briefcase,
-    name: "Derecho Laboral",
-    description: "Despidos, finiquitos, accidentes del trabajo y contratos.",
-  },
-  {
-    icon: Users,
-    name: "Derecho de Familia",
-    description: "Divorcios, alimentos, cuidado personal y violencia intrafamiliar.",
-  },
-  {
-    icon: Scale,
-    name: "Derecho Civil",
-    description: "Contratos, responsabilidad civil, herencias y arrendamientos.",
-  },
-  {
-    icon: Gavel,
-    name: "Derecho Penal",
-    description: "Defensa penal, querellas y delitos económicos.",
-  },
-  {
-    icon: Building2,
-    name: "Derecho Comercial",
-    description: "Sociedades, contratos mercantiles y conflictos societarios.",
-  },
-  {
-    icon: FileText,
-    name: "Derecho Tributario",
-    description: "Defensa ante el SII, planificación e impuestos.",
-  },
-  {
-    icon: HomeIcon,
-    name: "Derecho Inmobiliario",
-    description: "Compraventa, arriendos comerciales y conflictos de propiedad.",
-  },
-  {
-    icon: Globe,
-    name: "Derecho Migratorio",
-    description: "Visas, residencias, nacionalización y trámites ante extranjería.",
-  },
-  {
-    icon: PiggyBank,
-    name: "Derecho Previsional",
-    description: "Pensiones, invalidez, AFP y reclamos previsionales.",
   },
 ] as const;
 
@@ -151,10 +91,10 @@ export default function HomePage() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {SPECIALTIES.map((specialty) => (
               <SpecialtyCard
-                key={specialty.name}
+                key={specialty.code}
                 icon={specialty.icon}
                 name={specialty.name}
-                description={specialty.description}
+                description={specialty.shortDescription}
                 href="/registro/cliente"
               />
             ))}
