@@ -1,16 +1,26 @@
-export default function AdminLayout({
+import { redirect } from "next/navigation";
+
+import { AdminShell } from "@/components/layout/AdminShell";
+import { QueryProvider } from "@/components/providers/QueryProvider";
+import { getAuthUser, UnauthorizedError } from "@/lib/auth/server";
+
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  let auth;
+  try {
+    auth = await getAuthUser();
+  } catch (e) {
+    if (e instanceof UnauthorizedError) redirect("/login");
+    throw e;
+  }
+  if (auth.role !== "admin") redirect("/login");
+
   return (
-    <div className="flex flex-1">
-      <aside className="w-[260px] border-r border-gray-200 bg-gray-50 p-6">
-        <p className="text-sm font-medium text-gray-500">
-          Sidebar admin — pendiente
-        </p>
-      </aside>
-      <main className="flex-1 p-8">{children}</main>
-    </div>
+    <QueryProvider>
+      <AdminShell>{children}</AdminShell>
+    </QueryProvider>
   );
 }

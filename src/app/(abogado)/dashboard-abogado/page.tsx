@@ -15,6 +15,7 @@ import {
 import { Briefcase, Clock, Inbox, Target } from "lucide-react";
 import type { CaseStatus, UrgencyLevel } from "@prisma/client";
 
+import { KpiCard } from "@/components/shared/KpiCard";
 import { LoadingSkeleton } from "@/components/shared/LoadingSkeleton";
 import { SpecialtyTag } from "@/components/shared/SpecialtyTag";
 import { StatusBadge } from "@/components/shared/StatusBadge";
@@ -59,40 +60,6 @@ function formatResponseTime(minutes: number): string {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   return `${h}h ${m}m`;
-}
-
-function KpiCard({
-  icon: Icon,
-  label,
-  value,
-  hint,
-}: {
-  icon: typeof Briefcase;
-  label: string;
-  value: string;
-  hint?: string;
-}) {
-  return (
-    <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-      <div className="flex items-center gap-3">
-        <span
-          aria-hidden
-          className="flex size-10 items-center justify-center rounded-md bg-navy-50 text-navy-700"
-        >
-          <Icon className="size-5" />
-        </span>
-        <p className="text-xs font-medium uppercase tracking-wider text-gray-500">
-          {label}
-        </p>
-      </div>
-      <p className="mt-4 text-3xl font-bold tracking-tight text-navy-900">
-        {value}
-      </p>
-      {hint ? (
-        <p className="mt-1 text-xs text-gray-500">{hint}</p>
-      ) : null}
-    </div>
-  );
 }
 
 function shortDate(iso: string): string {
