@@ -39,6 +39,7 @@ export type AuthUser = {
   role: UserRole;
   firstName: string;
   lastName: string;
+  phone: string | null;
 };
 
 export class AuthError extends Error {
@@ -69,6 +70,7 @@ function toAuthUser(u: {
   role: UserRole;
   firstName: string;
   lastName: string;
+  phone: string | null;
 }): AuthUser {
   return {
     id: u.id,
@@ -77,6 +79,7 @@ function toAuthUser(u: {
     role: u.role,
     firstName: u.firstName,
     lastName: u.lastName,
+    phone: u.phone,
   };
 }
 

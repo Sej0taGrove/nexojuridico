@@ -142,6 +142,78 @@ async function seedSpecialties() {
   console.log(`✓ Especialidades: ${SPECIALTIES.length}`);
 }
 
+// =============================================================================
+// CASE_FORM_TEMPLATES — plantilla genérica v1 por especialidad
+// =============================================================================
+// El MVP del wizard de publicación usa preguntas genéricas (situation,
+// occurredAt, hasDocuments, description). Cada especialidad necesita al menos
+// una plantilla activa para satisfacer la FK obligatoria Case.templateId.
+// Cuando se agreguen plantillas específicas por especialidad, esta v1 queda
+// como fallback histórico.
+const GENERIC_TEMPLATE_SCHEMA = {
+  version: 1,
+  questions: [
+    {
+      key: 'situation',
+      label: '¿Cuál es tu situación?',
+      type: 'radio',
+      options: ['conflicto', 'consulta', 'tramite', 'otro'],
+      required: true,
+    },
+    {
+      key: 'occurredAt',
+      label: '¿Hace cuánto tiempo ocurrió?',
+      type: 'date',
+      required: true,
+    },
+    {
+      key: 'hasDocuments',
+      label: '¿Tienes documentación relacionada?',
+      type: 'boolean',
+      required: true,
+    },
+    {
+      key: 'description',
+      label: 'Describe brevemente tu situación',
+      type: 'textarea',
+      minLength: 50,
+      required: true,
+    },
+  ],
+};
+
+const GENERIC_URGENCY_RULES = {
+  thresholds: {
+    high: { maxDaysAgo: 30 },
+    medium: { maxDaysAgo: 90 },
+  },
+};
+
+async function seedCaseFormTemplates() {
+  const specialties = await prisma.specialty.findMany({
+    select: { id: true, code: true },
+  });
+
+  for (const spec of specialties) {
+    await prisma.caseFormTemplate.upsert({
+      where: { specialtyId_version: { specialtyId: spec.id, version: 1 } },
+      update: {
+        schema: GENERIC_TEMPLATE_SCHEMA,
+        urgencyRules: GENERIC_URGENCY_RULES,
+        isActive: true,
+      },
+      create: {
+        specialtyId: spec.id,
+        version: 1,
+        schema: GENERIC_TEMPLATE_SCHEMA,
+        urgencyRules: GENERIC_URGENCY_RULES,
+        isActive: true,
+      },
+    });
+  }
+  console.log(`✓ Plantillas de formulario v1: ${specialties.length}`);
+}
+
 async function seedAdmin(tenantId: string) {
   const passwordHash = await bcrypt.hash(ADMIN_TEMP_PASSWORD, 10);
 
@@ -172,6 +244,7 @@ async function main() {
   console.log('--- Seed NexoJurídico ---');
   const tenant = await seedTenant();
   await seedSpecialties();
+  await seedCaseFormTemplates();
   await seedAdmin(tenant.id);
   console.log('--- Seed completado ---');
 }
