@@ -12,7 +12,7 @@
  * -----------------------------------------------------------------------------
  */
 
-import { PrismaClient, UserRole } from '@prisma/client';
+import { PrismaClient, UserRole, ValidationStatus } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import bcrypt from 'bcryptjs';
 
@@ -214,6 +214,74 @@ async function seedCaseFormTemplates() {
   console.log(`✓ Plantillas de formulario v1: ${specialties.length}`);
 }
 
+// =============================================================================
+// TEST LAWYER — abogado de prueba ya validado (Carlos Ramírez)
+// =============================================================================
+// Necesario para poder probar el feed end-to-end. En producción los abogados
+// se crean en estado pending y un admin los aprueba manualmente.
+const TEST_LAWYER_EMAIL = 'carlos@test.com';
+const TEST_LAWYER_PASSWORD = 'Test1234';
+const TEST_LAWYER_SPECIALTIES: ReadonlyArray<string> = ['laboral', 'civil'];
+
+async function seedTestLawyer(tenantId: string) {
+  const passwordHash = await bcrypt.hash(TEST_LAWYER_PASSWORD, 10);
+
+  const user = await prisma.user.upsert({
+    where: {
+      tenantId_email: { tenantId, email: TEST_LAWYER_EMAIL },
+    },
+    update: {},
+    create: {
+      tenantId,
+      email: TEST_LAWYER_EMAIL,
+      passwordHash,
+      role: UserRole.lawyer,
+      firstName: 'Carlos',
+      lastName: 'Ramírez',
+      rut: '11.111.111-1',
+      phone: '+56 9 1111 1111',
+      isActive: true,
+      emailVerifiedAt: new Date(),
+    },
+  });
+
+  const specialties = await prisma.specialty.findMany({
+    where: { code: { in: [...TEST_LAWYER_SPECIALTIES] } },
+    select: { id: true, code: true },
+  });
+
+  await prisma.lawyerProfile.upsert({
+    where: { userId: user.id },
+    update: {
+      validationStatus: ValidationStatus.approved,
+      validatedAt: new Date(),
+      isAvailable: true,
+    },
+    create: {
+      userId: user.id,
+      barNumber: '00000-1',
+      validationStatus: ValidationStatus.approved,
+      validatedAt: new Date(),
+      isAvailable: true,
+      yearsExperience: 8,
+      bio: 'Especialista en Derecho Laboral y Civil con foco en negociación.',
+    },
+  });
+
+  // Asegurar especialidades. Idempotente vía deleteMany + createMany.
+  await prisma.lawyerSpecialty.deleteMany({ where: { lawyerId: user.id } });
+  await prisma.lawyerSpecialty.createMany({
+    data: specialties.map((s, idx) => ({
+      lawyerId: user.id,
+      specialtyId: s.id,
+      isPrimary: idx === 0,
+    })),
+  });
+
+  console.log(`✓ Abogado de prueba: ${user.email} (validado)`);
+  console.log(`   Password: ${TEST_LAWYER_PASSWORD}  Especialidades: ${specialties.map((s) => s.code).join(', ')}`);
+}
+
 async function seedAdmin(tenantId: string) {
   const passwordHash = await bcrypt.hash(ADMIN_TEMP_PASSWORD, 10);
 
@@ -246,6 +314,7 @@ async function main() {
   await seedSpecialties();
   await seedCaseFormTemplates();
   await seedAdmin(tenant.id);
+  await seedTestLawyer(tenant.id);
   console.log('--- Seed completado ---');
 }
 

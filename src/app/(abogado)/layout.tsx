@@ -1,16 +1,50 @@
-export default function AbogadoLayout({
+import { redirect } from "next/navigation";
+import { ValidationStatus } from "@prisma/client";
+
+import { LawyerShell } from "@/components/layout/LawyerShell";
+import { PendingValidationScreen } from "@/components/layout/PendingValidationScreen";
+import { QueryProvider } from "@/components/providers/QueryProvider";
+import { getAuthUser, UnauthorizedError } from "@/lib/auth/server";
+import { prisma } from "@/lib/prisma";
+
+export default async function AbogadoLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  let auth;
+  try {
+    auth = await getAuthUser();
+  } catch (e) {
+    if (e instanceof UnauthorizedError) redirect("/login");
+    throw e;
+  }
+  if (auth.role !== "lawyer") redirect("/login");
+
+  const profile = await prisma.lawyerProfile.findUnique({
+    where: { userId: auth.userId },
+    select: {
+      validationStatus: true,
+      rejectionReason: true,
+      user: { select: { firstName: true } },
+    },
+  });
+
+  if (!profile) redirect("/login");
+
+  if (profile.validationStatus !== ValidationStatus.approved) {
+    return (
+      <PendingValidationScreen
+        firstName={profile.user.firstName}
+        status={profile.validationStatus}
+        rejectionReason={profile.rejectionReason}
+      />
+    );
+  }
+
   return (
-    <div className="flex flex-1">
-      <aside className="w-[260px] border-r border-gray-200 bg-gray-50 p-6">
-        <p className="text-sm font-medium text-gray-500">
-          Sidebar abogado — pendiente
-        </p>
-      </aside>
-      <main className="flex-1 p-8">{children}</main>
-    </div>
+    <QueryProvider>
+      <LawyerShell>{children}</LawyerShell>
+    </QueryProvider>
   );
 }
