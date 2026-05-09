@@ -30,6 +30,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingSkeleton } from "@/components/shared/LoadingSkeleton";
 import { SpecialtyTag } from "@/components/shared/SpecialtyTag";
 import { UrgencyBadge } from "@/components/shared/UrgencyBadge";
@@ -202,9 +203,11 @@ export default function AdminHuerfanosPage() {
                   : "Error cargando huérfanos."}
               </div>
             ) : cases.length === 0 ? (
-              <p className="px-6 py-12 text-center text-sm text-gray-500">
-                No hay casos huérfanos con estos filtros.
-              </p>
+              <EmptyState
+                icon={AlertTriangle}
+                title="No hay casos huérfanos"
+                description="Ningún caso lleva más de 7 días sin ser tomado con estos filtros."
+              />
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">

@@ -33,9 +33,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingSkeleton } from "@/components/shared/LoadingSkeleton";
 import { SpecialtyTag } from "@/components/shared/SpecialtyTag";
 import type { AdminLawyerListItem } from "@/lib/admin/types";
+import { Inbox, Users } from "lucide-react";
 
 type ListResponse = {
   counts: { pending: number; approved: number; rejected: number; suspended: number };
@@ -259,9 +261,23 @@ export default function AdminAbogadosPage() {
               : "Error cargando abogados."}
           </div>
         ) : lawyers.length === 0 ? (
-          <p className="px-6 py-12 text-center text-sm text-gray-500">
-            No hay abogados en esta categoría.
-          </p>
+          <EmptyState
+            icon={tab === "pending" ? Inbox : Users}
+            title={
+              tab === "pending"
+                ? "No hay solicitudes pendientes"
+                : tab === "approved"
+                  ? "No hay abogados aprobados"
+                  : tab === "rejected"
+                    ? "No hay abogados rechazados"
+                    : "No hay abogados suspendidos"
+            }
+            description={
+              tab === "pending"
+                ? "Cuando lleguen solicitudes nuevas aparecerán aquí para validar."
+                : "Ajusta el buscador o cambia de pestaña para ver otros estados."
+            }
+          />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

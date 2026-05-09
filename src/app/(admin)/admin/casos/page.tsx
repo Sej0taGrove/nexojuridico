@@ -6,12 +6,14 @@ import { useQuery } from "@tanstack/react-query";
 import { CaseStatus, UrgencyLevel } from "@prisma/client";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 
+import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingSkeleton } from "@/components/shared/LoadingSkeleton";
 import { SpecialtyTag } from "@/components/shared/SpecialtyTag";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { UrgencyBadge } from "@/components/shared/UrgencyBadge";
 import { SPECIALTIES } from "@/lib/constants/specialties";
 import type { AdminCaseListItem } from "@/lib/admin/types";
+import { FolderOpen } from "lucide-react";
 
 type ListResponse = {
   cases: AdminCaseListItem[];
@@ -189,9 +191,11 @@ export default function AdminCasosPage() {
               : "Error cargando casos."}
           </div>
         ) : cases.length === 0 ? (
-          <p className="px-6 py-12 text-center text-sm text-gray-500">
-            No hay casos con estos filtros.
-          </p>
+          <EmptyState
+            icon={FolderOpen}
+            title="No hay casos con estos filtros"
+            description="Limpia los filtros o cambia el rango para ver más resultados."
+          />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

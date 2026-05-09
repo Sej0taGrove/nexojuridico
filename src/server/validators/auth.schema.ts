@@ -174,3 +174,27 @@ export const registerLawyerApiSchema = z
   });
 
 export type RegisterLawyerApiInput = z.infer<typeof registerLawyerApiSchema>;
+
+// -- Editar perfil ------------------------------------------------------------
+
+export const updateProfileSchema = z.object({
+  firstName: z
+    .string()
+    .trim()
+    .min(2, { message: "Mínimo 2 caracteres" })
+    .max(80, { message: "Máximo 80 caracteres" }),
+  lastName: z
+    .string()
+    .trim()
+    .min(2, { message: "Mínimo 2 caracteres" })
+    .max(80, { message: "Máximo 80 caracteres" }),
+  phone: z
+    .string()
+    .trim()
+    .optional()
+    .refine((v) => !v || CL_PHONE_REGEX.test(v), {
+      message: CL_PHONE_MESSAGE,
+    }),
+});
+
+export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;

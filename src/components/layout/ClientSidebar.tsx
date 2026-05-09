@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import {
   Bell,
   FolderOpen,
@@ -21,7 +22,6 @@ type NavItem = {
   href: string;
   label: string;
   icon: LucideIcon;
-  badge?: number;
 };
 
 const NAV_ITEMS: readonly NavItem[] = [
@@ -30,6 +30,17 @@ const NAV_ITEMS: readonly NavItem[] = [
   { href: "/notificaciones", label: "Notificaciones", icon: Bell },
   { href: "/perfil", label: "Mi perfil", icon: User },
 ] as const;
+
+async function fetchUnreadCount(): Promise<number> {
+  const res = await fetch("/api/notifications/unread-count", {
+    credentials: "include",
+  });
+  if (!res.ok) return 0;
+  const json = (await res.json()) as
+    | { success: true; data: { count: number } }
+    | { success: false };
+  return json.success ? json.data.count : 0;
+}
 
 function isActive(pathname: string, href: string): boolean {
   if (href === "/dashboard") return pathname === "/dashboard";
@@ -51,6 +62,12 @@ export function ClientSidebar({
 }) {
   const pathname = usePathname();
   const { user, logout, isLoggingOut } = useAuth();
+  const { data: unreadCount = 0 } = useQuery({
+    queryKey: ["notifications", "unread-count"],
+    queryFn: fetchUnreadCount,
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+  });
 
   return (
     <>
@@ -103,6 +120,10 @@ export function ClientSidebar({
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
             const active = isActive(pathname, item.href);
+            const badgeCount =
+              item.href === "/notificaciones" && unreadCount > 0
+                ? unreadCount
+                : null;
             return (
               <Link
                 key={item.href}
@@ -118,9 +139,12 @@ export function ClientSidebar({
               >
                 <Icon className="size-5 shrink-0" aria-hidden />
                 <span className="flex-1">{item.label}</span>
-                {item.badge ? (
-                  <span className="rounded-full bg-danger-500 px-2 py-0.5 text-xs font-semibold">
-                    {item.badge}
+                {badgeCount ? (
+                  <span
+                    aria-label={`${badgeCount} sin leer`}
+                    className="rounded-full bg-danger-500 px-2 py-0.5 text-xs font-semibold text-white"
+                  >
+                    {badgeCount > 99 ? "99+" : badgeCount}
                   </span>
                 ) : null}
               </Link>

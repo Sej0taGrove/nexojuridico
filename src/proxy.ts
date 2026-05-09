@@ -1,11 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-import {
-  ACCESS_TOKEN_COOKIE,
-  verifyAccessToken,
-  type AccessTokenPayload,
-} from "@/lib/auth/jwt";
+import { ACCESS_TOKEN_COOKIE, verifyAccessToken } from "@/lib/auth/jwt";
+import { homeForRole } from "@/lib/auth/roles";
 
 // En Next.js 16 "middleware" se renombró a "proxy". El archivo se llama
 // proxy.ts y la función exportada se llama `proxy`. Ver:
@@ -34,13 +31,6 @@ function startsWithAny(pathname: string, prefixes: string[]): boolean {
   );
 }
 
-function homeForRole(role: AccessTokenPayload["role"]): string {
-  if (role === "client") return "/dashboard";
-  if (role === "lawyer") return "/feed";
-  if (role === "admin") return "/admin";
-  return "/";
-}
-
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -64,7 +54,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  let payload: AccessTokenPayload;
+  let payload: Awaited<ReturnType<typeof verifyAccessToken>>;
   try {
     payload = await verifyAccessToken(token);
   } catch {

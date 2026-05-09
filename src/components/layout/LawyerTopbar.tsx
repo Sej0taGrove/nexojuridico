@@ -69,45 +69,50 @@ export function LawyerTopbar({
   const breadcrumbs = useMemo(() => buildCrumbs(pathname), [pathname]);
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-gray-200 bg-white px-4 md:px-8">
-      <div className="flex items-center gap-3">
+    <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-2 border-b border-gray-200 bg-white px-4 md:px-8">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
         <button
           type="button"
           onClick={onOpenSidebar}
           aria-label="Abrir menú"
-          className="rounded-md p-2 text-gray-600 transition-colors hover:bg-gray-100 md:hidden"
+          className="shrink-0 rounded-md p-2 text-gray-600 transition-colors hover:bg-gray-100 md:hidden"
         >
           <Menu className="size-5" />
         </button>
         <nav
           aria-label="Migas de pan"
-          className="flex items-center gap-2 text-sm font-medium"
+          className="flex min-w-0 items-center gap-2 overflow-hidden text-sm font-medium"
         >
           {breadcrumbs.map((crumb, idx) => {
             const isLast = idx === breadcrumbs.length - 1;
+            const hiddenOnMobile = !isLast && idx > 0;
             return (
               <Fragment key={`${crumb.label}-${idx}`}>
                 {crumb.href && !isLast ? (
                   <Link
                     href={crumb.href}
-                    className="text-gray-500 transition-colors hover:text-navy-600"
+                    className={`truncate text-gray-500 transition-colors hover:text-navy-600 ${
+                      hiddenOnMobile ? "hidden sm:inline" : ""
+                    }`}
                   >
                     {crumb.label}
                   </Link>
                 ) : (
                   <span
-                    className={
+                    className={`truncate ${
                       isLast
                         ? "font-semibold text-navy-700"
                         : "text-gray-500"
-                    }
+                    } ${hiddenOnMobile ? "hidden sm:inline" : ""}`}
                   >
                     {crumb.label}
                   </span>
                 )}
                 {!isLast ? (
                   <ChevronRight
-                    className="size-4 text-gray-400"
+                    className={`size-4 shrink-0 text-gray-400 ${
+                      hiddenOnMobile ? "hidden sm:inline" : ""
+                    }`}
                     aria-hidden
                   />
                 ) : null}

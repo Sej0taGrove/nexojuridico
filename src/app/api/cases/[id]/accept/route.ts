@@ -10,6 +10,7 @@ import {
   truncate,
   type AcceptedCaseDetail,
 } from "@/lib/cases/lawyer";
+import { createNotification } from "@/server/services/notification.service";
 
 export async function POST(
   _req: NextRequest,
@@ -134,6 +135,17 @@ export async function POST(
   }
 
   const c = acceptedCase.detail;
+
+  // Notificar al cliente. No bloquea la respuesta si falla (el servicio loguea).
+  await createNotification({
+    userId: c.client.id,
+    type: "case_accepted",
+    title: "Un abogado aceptó tu caso",
+    message: `Un abogado especialista en ${c.specialty.name} aceptó tu caso "${c.title}".`,
+    link: `/mis-casos/${c.id}`,
+    metadata: { caseId: c.id, specialtyCode: c.specialty.code },
+  });
+
   const occurredAt = readOccurredAt(c.responses);
 
   const result: AcceptedCaseDetail = {

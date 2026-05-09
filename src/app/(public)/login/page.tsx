@@ -19,6 +19,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { homeForRole } from "@/lib/auth/roles";
 import {
   loginSchema,
   type LoginInput,
@@ -51,15 +52,8 @@ export default function LoginPage() {
       }
 
       const role = json.data.user.role as "client" | "lawyer" | "admin";
-      const dest =
-        role === "client"
-          ? "/dashboard"
-          : role === "lawyer"
-            ? "/feed"
-            : "/admin";
-
       toast.success("Sesión iniciada");
-      router.push(dest);
+      router.push(homeForRole(role));
       router.refresh();
     } catch {
       toast.error("Error de red. Intenta de nuevo.");

@@ -40,6 +40,7 @@ export type AuthUser = {
   firstName: string;
   lastName: string;
   phone: string | null;
+  rut: string | null;
 };
 
 export class AuthError extends Error {
@@ -71,6 +72,7 @@ function toAuthUser(u: {
   firstName: string;
   lastName: string;
   phone: string | null;
+  rut: string | null;
 }): AuthUser {
   return {
     id: u.id,
@@ -80,6 +82,7 @@ function toAuthUser(u: {
     firstName: u.firstName,
     lastName: u.lastName,
     phone: u.phone,
+    rut: u.rut,
   };
 }
 

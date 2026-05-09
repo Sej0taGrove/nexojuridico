@@ -7,6 +7,7 @@ import type { AdminLawyerDetail } from "@/lib/admin/types";
 import { writeAuditLog, type AuditAction } from "@/lib/audit";
 import { getAuthUser, UnauthorizedError } from "@/lib/auth/server";
 import { prisma } from "@/lib/prisma";
+import { createNotification } from "@/server/services/notification.service";
 
 const PatchSchema = z.object({
   action: z.enum(["approve", "reject", "suspend", "reactivate"]),
@@ -249,6 +250,22 @@ export async function PATCH(
       tx,
     );
   });
+
+  // Notificar al abogado cuando es aprobado o reactivado.
+  if (action === "approve" || action === "reactivate") {
+    const isReactivation = action === "reactivate";
+    await createNotification({
+      userId: profile.userId,
+      type: "lawyer_approved",
+      title: isReactivation
+        ? "Tu cuenta ha sido reactivada"
+        : "Tu cuenta ha sido aprobada",
+      message: isReactivation
+        ? "Tu cuenta de abogado fue reactivada. Ya puedes ver casos nuevamente en el feed."
+        : "Tu cuenta de abogado fue aprobada. Ya puedes ver y aceptar casos en el feed.",
+      link: "/feed",
+    });
+  }
 
   const detail = await loadDetail(auth.tenantId, id);
   return ok({ lawyer: detail });

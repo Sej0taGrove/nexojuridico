@@ -12,6 +12,7 @@ export type AuthUser = {
   firstName: string;
   lastName: string;
   phone: string | null;
+  rut: string | null;
 };
 
 async function fetchMe(): Promise<AuthUser | null> {
