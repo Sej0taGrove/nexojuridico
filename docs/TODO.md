@@ -1,202 +1,35 @@
-# NexoJurídico — Pendientes Técnicos
+# NexoJurídico — Pendientes Técnicos y Backlog
 
-> Este archivo lista todo lo que el modelo de datos / arquitectura
-> requiere pero **no se puede expresar en `schema.prisma`**, o que
-> debe configurarse fuera del ORM. Cada item incluye dónde aplicarlo
-> y por qué importa.
+Este documento clasifica las tareas y mejoras pendientes descubiertas durante el desarrollo, organizadas por prioridad.
 
 ---
 
-## 1. Triggers de base de datos
+## ⚡ P1: Crítico (Antes de producción / Piloto)
 
-### 1.1. Auto-actualización de `updated_at`
+Las tareas de esta categoría deben ser implementadas obligatoriamente antes de que el primer usuario real utilice la aplicación en ambiente de producción.
 
-**Estado:** Cubierto por Prisma vía `@updatedAt` — pero **solo cuando el cambio
-pasa por Prisma**. Si en algún momento se hacen UPDATEs directos por SQL
-(jobs, scripts manuales, herramientas externas), `updated_at` no se moverá.
+1. **Rotación del password admin**: Cambiar la clave generada por defecto (`ChangeMe123!`) del usuario `admin@nexojuridico.cl` configurada en el seed de la base de datos.
+2. **Índices de Base de Datos**: Ejecutar las migraciones pendientes que añaden los índices manuales (ej. GIN para JSON, índices compuestos de especialidades y regiones) documentados en `prisma/migrations/manual_indexes.sql`.
+3. **Upload de Archivos a Supabase Storage**: Implementar la lógica para que los abogados suban las evidencias de título/colegiatura y que los clientes puedan subir documentos al crear el caso. Esto requiere configurar el storage bucket temporal/privado y modificar el endpoint/form de registro.
+4. **Verificación de secretos de entorno**: Asegurar que en Vercel esten configuradas `DATABASE_URL` y variables JWT de uso intensivo y seguro (claves autogeneradas `openssl rand -base64 32`).
+5. **Configuración de Cron Huérfanos**: Implementar un script / cron (`app/api/cron/orphans/route.ts` llamado por `vercel.json`) que ponga el `status` a `'huerfano'` para los casos de más de 7 días no tomados. Notificar automáticamente al administrador.
 
-**Recomendación:** Crear un trigger PostgreSQL que actualice `updated_at` a
-nivel de BD para garantizar la invariante incluso fuera de Prisma.
+## 🚀 P2: Alta Prioridad (Post-lanzamiento temprano)
 
-```sql
--- Función reusable
-CREATE OR REPLACE FUNCTION set_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+Estas tareas enriquecen funcionalmente el producto y previenen acumulación de deuda técnica. Pueden dejarse para una fase posterior al primer test piloto.
 
--- Aplicar a cada tabla con updated_at:
-CREATE TRIGGER trg_tenants_updated_at
-  BEFORE UPDATE ON tenants
-  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+1. **Correos Transaccionales con Resend**: Configurar e implementar envíos de correos (plantillas HTML) para bienvenida de cuentas, notificación de caso tomado a cliente, y aviso de casos nuevos al administrador.
+2. **Cambio de Contraseña y Recuperación**: Crear los flujos (endpoints y UI) para que un abogado/cliente pueda gestionar su clave (forgot password con token, password reset).
+3. **Verificación de Email**: Asegurar el doble opt-in (link al correo del usuario) en el registro para evitar cuentas fantasma, antes de habilitar publicar casos.
+4. **Triggers de Base de Datos**: Consolidar operaciones para actualización consistente como la lógica del campo `updated_at` nativo para todas las tablas, e inyectar el historial en `case_status_history` vía `Triggers BD` en vez de confiar la inserción puramente al servicio de Backend.
+5. **Políticas RLS en Supabase**: Escalar el control de accesos usando _Row Level Security_ nativo de Postgres para `tenant_id` y usuario actual.
+6. **Sentry (Monitoreo de Errores)**: Integrar Sentry para detectar excepciones en frontend y backend en tiempo real, especialmente vitales una vez haya tráfico constante.
 
--- Repetir para: users, cases, ... (todas las tablas con updated_at)
-```
+## 🌟 P3: Nice to have (Mejoras futuras)
 
-**Tablas afectadas:** `tenants`, `users`, `cases`. (El resto no tienen `updated_at`
-en el modelo actual — verificar al crecer.)
+Oportunidades de crecimiento y mejoras no críticas.
 
-**Dónde añadir:** Migración SQL crudo posterior a `prisma migrate dev --name init`,
-o como migración explícita `prisma migrate dev --name updated_at_triggers --create-only`.
-
----
-
-### 1.2. Auto-registro en `case_status_history` cuando cambia `cases.status`
-
-**Por qué:** El documento maestro (§8.4) declara que cada cambio de estado
-debe registrarse automáticamente. Hacerlo desde la app requiere disciplina
-(toda mutación de `cases.status` debe pasar por un servicio dedicado). Un
-trigger lo hace inviolable.
-
-**Decisión pendiente:** ¿Implementarlo en BD (trigger) o en aplicación
-(servicio único `caseStatusService.transition()`)?
-
-- **Trigger en BD:** Garantiza la invariante incluso ante UPDATEs directos.
-  Pero el campo `changed_by` requiere que la app pase el actor por
-  `SET LOCAL app.current_user_id` o similar — agrega complejidad.
-- **Servicio en app:** Más simple, controla `changed_by` y `reason`
-  naturalmente. Requiere disciplina (lint rule / code review) para que
-  nadie escriba `prisma.case.update({ status: ... })` en otro lado.
-
-**Recomendación pragmática:** Empezar con servicio en app, agregar trigger
-defensivo más adelante si aparecen casos que escapan al servicio.
-
-```sql
--- Boceto del trigger (si se opta por BD):
-CREATE OR REPLACE FUNCTION log_case_status_change()
-RETURNS TRIGGER AS $$
-BEGIN
-  IF NEW.status IS DISTINCT FROM OLD.status THEN
-    INSERT INTO case_status_history (case_id, from_status, to_status, changed_by, created_at)
-    VALUES (
-      NEW.id,
-      OLD.status,
-      NEW.status,
-      COALESCE(current_setting('app.current_user_id', true)::uuid, NEW.client_id),
-      NOW()
-    );
-  END IF;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_cases_status_history
-  AFTER UPDATE ON cases
-  FOR EACH ROW EXECUTE FUNCTION log_case_status_change();
-```
-
----
-
-## 2. Cron job: marcar casos huérfanos
-
-**Spec (§8.4):** Casos con más de 7 días en `en_cola` → pasan a `huerfano`,
-se setea `orphan_at`, se notifica al admin.
-
-**Implementación recomendada:**
-
-```sql
--- Lógica del job (correr cada hora):
-UPDATE cases
-SET status = 'huerfano',
-    orphan_at = NOW(),
-    updated_at = NOW()
-WHERE status = 'en_cola'
-  AND published_at < NOW() - INTERVAL '7 days'
-  AND deleted_at IS NULL;
-```
-
-**Dónde correrlo (3 opciones, ordenadas por simpleza):**
-
-1. **Vercel Cron** (recomendada): Ruta `app/api/cron/orphans/route.ts`
-   protegida con `CRON_SECRET`. `vercel.json` la dispara cada hora.
-   Cero infra extra.
-2. **Supabase pg_cron**: Más cerca de los datos, sin pasar por la app.
-   Requiere habilitar la extensión.
-3. **Worker externo** (BullMQ + Redis): Sobre-ingeniería para el MVP.
-
-**TODO al implementar:**
-- Disparar notificaciones al admin (D-06: Casos huérfanos) por cada
-  caso que pasa a huérfano.
-- Registrar la transición en `case_status_history` (cuando esté el
-  trigger / servicio del item 1.2).
-
----
-
-## 3. Índices avanzados (parciales / GIN)
-
-**Estado:** Definidos en `prisma/migrations/manual_indexes.sql` con
-comentarios explicando cada uno. Pendiente: integrarlos a la migración
-inicial generada por `prisma migrate dev`.
-
-Ver el archivo para los 4 índices (`idx_cases_specialty_urgency`,
-`idx_cases_content_hash`, `idx_cases_responses` GIN,
-`idx_notifications_user_unread`) y las opciones de aplicación.
-
----
-
-## 4. Row Level Security / aislamiento multi-tenant
-
-**Spec (§9.5):** Todas las queries Prisma deben filtrar por `tenant_id`
-para evitar fugas entre tenants.
-
-**Implementación recomendada:** `PrismaClient` extendido (Prisma Client
-Extensions, `client.$extends`) que inyecte automáticamente
-`{ where: { tenantId: ctx.tenantId } }` en operaciones `find*`, `update*`,
-`delete*`, `count` para los modelos con `tenant_id`.
-
-**Alternativa más fuerte:** PostgreSQL RLS (`ALTER TABLE … ENABLE ROW LEVEL
-SECURITY`) + policy que use `current_setting('app.tenant_id')`. Defensa en
-profundidad: aunque el código tenga un bug, la BD bloquea la fuga. Más
-trabajo de configuración (la app debe `SET LOCAL app.tenant_id` por
-transacción).
-
-**Recomendación:** Empezar con la extensión de Prisma; añadir RLS antes
-del go-live multi-tenant real (post-piloto).
-
----
-
-## 5. Validación de invariantes adicionales
-
-Pendientes que ni Prisma ni el modelo actual fuerzan, pero el documento
-maestro implica:
-
-- **Un solo `case_assignments.is_active = true` por caso** → CHECK constraint
-  o índice único parcial: `CREATE UNIQUE INDEX … ON case_assignments(case_id) WHERE is_active`.
-- **`lawyer_specialties.is_primary = true` único por abogado** → mismo patrón.
-- **`case_form_templates.is_active = true` único por especialidad** → mismo patrón.
-- **`urgency` y `urgency_score` consistentes** (ej: `alta` ↔ score >= threshold)
-  → validar en aplicación o CHECK constraint con thresholds.
-
----
-
-## 6. Storage de documentos del abogado
-
-**Spec (§9.1):** Supabase Storage para `lawyer_profiles.certificates_url`.
-
-**Pendiente:** Definir bucket, política de acceso (firmar URLs temporales
-vs públicas), y formato del campo (¿una URL? ¿un array de URLs en JSONB?).
-Actualmente `certificates_url` es `String?` — probablemente debería pasar
-a `Json?` (lista de documentos: nombre + URL + tipo).
-
----
-
-## 7. Variables de entorno faltantes
-
-`.env` / `.env.local` debe tener al menos `DATABASE_URL` antes de poder
-correr `prisma migrate dev`. Lista completa en §9.7 del documento maestro.
-
-**Verificar antes del primer migrate:**
-```bash
-test -f .env || echo "FALTA .env con DATABASE_URL"
-```
-
----
-
-## 8. Rotación del password admin del seed
-
-`prisma/seed.ts` crea `admin@nexojuridico.cl` con password temporal
-`ChangeMe123!`. **Antes de ir a producción** debe rotarse — ver nota
-en el código del seed.
+1. **Dark Mode**: Terminar la implementación e introducción del toggle general dentro de la plataforma al 100% de los elementos UI, para comodidad del usuario.
+2. **App Móvil (PWA / React Native)**: Evaluar convertir la interfaz web (que ya es mobile-first) en una Progressive Web App instalable, y posterior empaquetado para distribución en las tiendas iOS y Android.
+3. **Soporte y Chat Directo**: Escalar la simple vista de contacto del caso a una mensajería en tiempo real abogado-cliente.
+4. **Validaciones cruzadas en BD (CHECK constraints)**: Por ejemplo, forzar 1 sólo assignment de abogado sobre un caso a nivel de esquema (Postgres Constraint), validación obligatoria de `urgency_score` basada en fechas de la DB, u obligatoriedad de que exista _un único_ `is_primary=true` sobre la tabla de especialidades de los abogados.

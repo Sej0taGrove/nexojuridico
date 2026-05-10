@@ -2,7 +2,6 @@ import type { CaseStatus } from "@prisma/client";
 import {
   CheckCircle2,
   Handshake,
-  Hourglass,
   Inbox,
   ShieldCheck,
   UserPlus,

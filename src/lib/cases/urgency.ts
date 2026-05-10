@@ -6,6 +6,8 @@ const DAYS_MEDIUM = 90;
 export function calculateUrgency(occurredAt: Date | string): UrgencyLevel {
   const date = typeof occurredAt === "string" ? new Date(occurredAt) : occurredAt;
   const days = Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24));
+  
+  if (days < 0) return "baja"; // fecha futura
   if (days <= DAYS_HIGH) return "alta";
   if (days <= DAYS_MEDIUM) return "media";
   return "baja";

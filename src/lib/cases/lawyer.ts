@@ -1,7 +1,6 @@
 import type { CaseStatus, UrgencyLevel } from "@prisma/client";
 
 const DAYS_HIGH = 30;
-const DAYS_MEDIUM = 90;
 
 export function explainUrgency(
   occurredAt: Date | string | null | undefined,

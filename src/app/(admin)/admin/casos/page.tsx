@@ -91,6 +91,7 @@ export default function AdminCasosPage() {
 
   // Cuando cambian filtros, vuelve a la página 1
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPage(1);
   }, [status, urgency, specialty]);
 

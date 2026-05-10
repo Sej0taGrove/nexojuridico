@@ -67,9 +67,10 @@ export default function PublicarCasoPage() {
 
   useEffect(() => {
     if (user?.phone) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDraft((s) => (s.phone ? s : { ...s, phone: user.phone ?? "" }));
     }
-  }, [user?.phone]);
+  }, [user?.phone, setDraft]);
 
   const mutation = useMutation({
     mutationFn: postCase,
