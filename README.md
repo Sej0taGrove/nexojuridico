@@ -137,7 +137,12 @@ Tras ejecutar el `seed`, puedes utilizar estas cuentas:
 
 ## 👨‍💻 Equipo
 
-*   **Robinson García** – *Lead Developer*
+*   **Sebastián Espinoza** – *Lead Developer & Arquitecto*
+    Desarrollo completo del stack (Frontend, Backend, Base de Datos).
+*   **Robinson García** – *QA & Code Review*
+    Revisión exhaustiva de código, pruebas funcionales, optimizaciones UX/performance.
+*   **Vicente Leyton** – *DevOps & Deployment*
+    Preparación del deploy final, configuración Vercel, presentación a Italo Vignes.
 
 ## 📄 Licencia
 
