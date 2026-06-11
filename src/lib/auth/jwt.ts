@@ -4,11 +4,14 @@ import type { UserRole } from "@prisma/client";
 
 const ACCESS_TOKEN_TTL = "15m";
 const REFRESH_TOKEN_TTL = "7d";
+const PASSWORD_RESET_TOKEN_TTL = "1h";
 
 const FALLBACK_ACCESS_SECRET =
   "dev-access-secret-do-not-use-in-production-please-set-JWT_SECRET";
 const FALLBACK_REFRESH_SECRET =
   "dev-refresh-secret-do-not-use-in-production-please-set-JWT_REFRESH_SECRET";
+const FALLBACK_PASSWORD_RESET_SECRET =
+  "dev-password-reset-secret-do-not-use-in-production-please-set-JWT_PASSWORD_RESET_SECRET";
 
 let warnedAccess = false;
 let warnedRefresh = false;
@@ -37,6 +40,20 @@ function getRefreshSecret(): Uint8Array {
       warnedRefresh = true;
     }
     return new TextEncoder().encode(FALLBACK_REFRESH_SECRET);
+  }
+  return new TextEncoder().encode(secret);
+}
+
+function getPasswordResetSecret(): Uint8Array {
+  const secret = process.env.JWT_PASSWORD_RESET_SECRET;
+  if (!secret) {
+    if (!warnedRefresh) {
+      console.warn(
+        "[auth] JWT_PASSWORD_RESET_SECRET no está definido. Usando fallback de desarrollo. NO usar en producción.",
+      );
+      warnedRefresh = true;
+    }
+    return new TextEncoder().encode(FALLBACK_PASSWORD_RESET_SECRET);
   }
   return new TextEncoder().encode(secret);
 }
@@ -71,6 +88,23 @@ export async function signRefreshToken(
     .setIssuedAt()
     .setExpirationTime(REFRESH_TOKEN_TTL)
     .sign(getRefreshSecret());
+}
+
+export async function signPasswordResetToken(
+  payload: { userId: string },
+): Promise<string> {
+  return new SignJWT({ ...payload })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime(PASSWORD_RESET_TOKEN_TTL)
+    .sign(getPasswordResetSecret());
+}
+
+export async function verifyPasswordResetToken(
+  token: string,
+): Promise<{ userId: string } & JoseJWTPayload> {
+  const { payload } = await jwtVerify(token, getPasswordResetSecret());
+  return payload as { userId: string } & JoseJWTPayload;
 }
 
 export async function verifyAccessToken(

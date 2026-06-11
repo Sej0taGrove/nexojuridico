@@ -197,4 +197,47 @@ export const updateProfileSchema = z.object({
     }),
 });
 
+export const passwordResetRequestSchema = z.object({
+  email: z
+    .string()
+    .min(1, { message: "El email es requerido" })
+    .email({ message: "Ingresa un email válido" }),
+});
+
+export const passwordResetConfirmSchema = z
+  .object({
+    token: z.string().min(1, { message: "Token inválido" }),
+    password: z
+      .string()
+      .regex(PASSWORD_REGEX, { message: PASSWORD_MESSAGE }),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    path: ["confirmPassword"],
+    message: "Las contraseñas no coinciden",
+  });
+
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(8, {
+      message: "La contraseña actual debe tener al menos 8 caracteres",
+    }),
+    password: z
+      .string()
+      .regex(PASSWORD_REGEX, { message: PASSWORD_MESSAGE }),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    path: ["confirmPassword"],
+    message: "Las contraseñas no coinciden",
+  });
+
+export type PasswordResetRequestInput = z.infer<
+  typeof passwordResetRequestSchema
+>;
+export type PasswordResetConfirmInput = z.infer<
+  typeof passwordResetConfirmSchema
+>;
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;

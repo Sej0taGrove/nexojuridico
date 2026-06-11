@@ -20,6 +20,8 @@ import { Input } from "@/components/ui/input";
 import { LoadingSkeleton } from "@/components/shared/LoadingSkeleton";
 import { useAuth, type AuthUser } from "@/hooks/useAuth";
 import {
+  changePasswordSchema,
+  type ChangePasswordInput,
   updateProfileSchema,
   type UpdateProfileInput,
 } from "@/server/validators/auth.schema";
@@ -38,6 +40,22 @@ async function patchProfile(input: UpdateProfileInput): Promise<AuthUser> {
     throw new Error(("error" in json && json.error) || "Error actualizando perfil");
   }
   return json.data.user;
+}
+
+async function patchPassword(input: ChangePasswordInput): Promise<string> {
+  const res = await fetch("/api/auth/password", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+    credentials: "include",
+  });
+  const json = await res.json() as
+    | { success: true; data: { message: string } }
+    | { success: false; error: string };
+  if (!res.ok || !json.success) {
+    throw new Error(("error" in json && json.error) || "Error al cambiar contraseña");
+  }
+  return json.data.message;
 }
 
 export default function PerfilPage() {
@@ -71,6 +89,27 @@ export default function PerfilPage() {
     },
     onError: (err: Error) => {
       toast.error(err.message || "No se pudo actualizar el perfil");
+    },
+  });
+
+  const passwordForm = useForm<ChangePasswordInput>({
+    resolver: zodResolver(changePasswordSchema),
+    defaultValues: {
+      currentPassword: "",
+      password: "",
+      confirmPassword: "",
+    },
+    mode: "onBlur",
+  });
+
+  const passwordMutation = useMutation({
+    mutationFn: patchPassword,
+    onSuccess: (message) => {
+      toast.success(message);
+      passwordForm.reset();
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "No se pudo cambiar la contraseña");
     },
   });
 
@@ -235,7 +274,96 @@ export default function PerfilPage() {
         )}
       </section>
 
-      {/* TODO: cambio de contraseña */}
+      <section className="mt-8 rounded-xl border border-gray-200 bg-white p-6 shadow-sm md:p-8">
+        <div className="mb-6">
+          <h2 className="text-xl font-semibold text-navy-900">Cambiar contraseña</h2>
+          <p className="mt-2 text-sm text-gray-500">
+            Completa este formulario si deseas actualizar tu contraseña.
+          </p>
+        </div>
+
+        <Form {...passwordForm}>
+          <form
+            onSubmit={passwordForm.handleSubmit((data) => passwordMutation.mutate(data))}
+            className="grid gap-5"
+            noValidate
+          >
+            <FormField
+              control={passwordForm.control}
+              name="currentPassword"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-gray-700">Contraseña actual</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="password"
+                      autoComplete="current-password"
+                      className="h-11 px-3.5 text-base"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage className="text-danger-700" />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={passwordForm.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-gray-700">Nueva contraseña</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="password"
+                      autoComplete="new-password"
+                      className="h-11 px-3.5 text-base"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage className="text-danger-700" />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={passwordForm.control}
+              name="confirmPassword"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-gray-700">Repetir nueva contraseña</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="password"
+                      autoComplete="new-password"
+                      className="h-11 px-3.5 text-base"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage className="text-danger-700" />
+                </FormItem>
+              )}
+            />
+
+            <div className="flex justify-end">
+              <Button
+                type="submit"
+                size="lg"
+                disabled={passwordMutation.isPending}
+              >
+                {passwordMutation.isPending ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" aria-hidden />
+                    Actualizando...
+                  </>
+                ) : (
+                  "Cambiar contraseña"
+                )}
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </section>
     </div>
   );
 }

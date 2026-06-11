@@ -5,7 +5,9 @@ import { prisma } from "@/lib/prisma";
 import {
   signAccessToken,
   signRefreshToken,
+  signPasswordResetToken,
   verifyAccessToken,
+  verifyPasswordResetToken,
   verifyRefreshToken,
 } from "@/lib/auth/jwt";
 import type { SpecialtyCode } from "@/lib/constants/specialties";
@@ -251,6 +253,63 @@ export async function refreshAccessToken(refreshToken: string): Promise<{
   });
 
   return { token };
+}
+
+export async function createPasswordResetToken(
+  email: string,
+): Promise<string | null> {
+  const tenant = await getDefaultTenant();
+  const user = await prisma.user.findUnique({
+    where: { tenantId_email: { tenantId: tenant.id, email: email.toLowerCase() } },
+  });
+  if (!user || user.deletedAt || !user.isActive) return null;
+
+  return signPasswordResetToken({ userId: user.id });
+}
+
+export async function resetPassword(
+  token: string,
+  password: string,
+): Promise<void> {
+  let payload;
+  try {
+    payload = await verifyPasswordResetToken(token);
+  } catch {
+    throw new AuthError("Token inválido o expirado", 400);
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: payload.userId } });
+  if (!user || user.deletedAt || !user.isActive) {
+    throw new AuthError("Usuario inválido", 400);
+  }
+
+  const passwordHash = await bcrypt.hash(password, 10);
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { passwordHash },
+  });
+}
+
+export async function changePassword(
+  userId: string,
+  currentPassword: string,
+  password: string,
+): Promise<void> {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user || user.deletedAt || !user.isActive) {
+    throw new AuthError("Usuario inválido", 401);
+  }
+
+  const matches = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!matches) {
+    throw new AuthError("Contraseña actual incorrecta", 400);
+  }
+
+  const passwordHash = await bcrypt.hash(password, 10);
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { passwordHash },
+  });
 }
 
 export async function getUserById(id: string): Promise<AuthUser | null> {
