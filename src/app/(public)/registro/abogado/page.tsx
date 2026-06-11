@@ -61,17 +61,50 @@ export default function RegistroAbogadoPage() {
   const { isSubmitting } = form.formState;
 
   async function onSubmit(data: RegisterLawyerInput) {
-    // Los archivos se subirán en una fase posterior. Por ahora la API
-    // recibe solo los campos de texto.
-    const { titleCert: _t, barCert: _b, ...payload } = data;
-    void _t;
-    void _b;
+    const { titleCert, barCert, ...payload } = data;
 
     try {
+      const { supabase } = await import("@/lib/supabase-client");
+      const uploadedCerts = [];
+
+      // Función auxiliar para subir a Supabase
+      const uploadFile = async (file: File, prefix: string) => {
+        const fileExt = file.name.split(".").pop();
+        const fileName = `${prefix}-${Date.now()}.${fileExt}`;
+
+        const { error } = await supabase.storage
+          .from("lawyer-documents")
+          .upload(fileName, file);
+
+        if (error) {
+          console.error("Supabase error:", error);
+          throw new Error("No se pudo subir a Supabase. ¿Creaste el bucket lawyer-documents?");
+        }
+
+        const { data: publicUrlData } = supabase.storage
+          .from("lawyer-documents")
+          .getPublicUrl(fileName);
+
+        uploadedCerts.push({
+          name: file.name,
+          url: publicUrlData.publicUrl,
+          size: file.size,
+          type: file.type,
+        });
+      };
+
+      if (titleCert) await uploadFile(titleCert, "title");
+      if (barCert) await uploadFile(barCert, "bar");
+
+      const apiPayload = {
+        ...payload,
+        certificates: uploadedCerts.length > 0 ? uploadedCerts : undefined,
+      };
+
       const res = await fetch("/api/auth/register/lawyer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(apiPayload),
       });
       const json = await res.json();
 
@@ -84,8 +117,8 @@ export default function RegistroAbogadoPage() {
         description: "Espera la validación del administrador para iniciar sesión.",
       });
       router.push("/login");
-    } catch {
-      toast.error("Error de red. Intenta de nuevo.");
+    } catch (err: any) {
+      toast.error(err.message || "Error de red. Intenta de nuevo.");
     }
   }
 

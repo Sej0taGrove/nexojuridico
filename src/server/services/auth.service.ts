@@ -32,6 +32,12 @@ export type RegisterLawyerServiceInput = {
   barNumber: string;
   specialties: SpecialtyCode[];
   password: string;
+  certificates?: {
+    name: string;
+    url: string;
+    size: number;
+    type: string;
+  }[];
 };
 
 export type AuthUser = {
@@ -165,6 +171,7 @@ export async function registerLawyer(
           barNumber: data.barNumber,
           validationStatus: ValidationStatus.pending,
           isAvailable: false,
+          certificatesUrl: data.certificates ? JSON.stringify(data.certificates) : null,
           specialties: {
             create: specialties.map((s, idx) => ({
               specialtyId: s.id,

@@ -355,20 +355,47 @@ export default function AdminLawyerDetailPage() {
             <h2 className="mb-4 text-lg font-semibold text-navy-900">
               Documentos
             </h2>
-            {l.certificatesUrl ? (
-              <a
-                href={l.certificatesUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-navy-700 hover:bg-gray-50"
-              >
-                <FileText className="size-4" aria-hidden />
-                Ver certificados
-                <ExternalLink className="size-3" aria-hidden />
-              </a>
-            ) : (
-              <p className="text-sm text-gray-500">No disponible.</p>
-            )}
+            {(() => {
+              if (!l.certificatesUrl) {
+                return <p className="text-sm text-gray-500">No disponible.</p>;
+              }
+              try {
+                const certs = JSON.parse(l.certificatesUrl);
+                if (Array.isArray(certs) && certs.length > 0) {
+                  return (
+                    <div className="flex flex-col gap-2">
+                      {certs.map((cert: any, idx: number) => (
+                        <a
+                          key={idx}
+                          href={cert.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-navy-700 hover:bg-gray-50 max-w-sm"
+                        >
+                          <FileText className="size-4 text-navy-500 shrink-0" aria-hidden />
+                          <span className="truncate">{cert.name}</span>
+                          <ExternalLink className="ml-auto size-3 shrink-0" aria-hidden />
+                        </a>
+                      ))}
+                    </div>
+                  );
+                }
+                return <p className="text-sm text-gray-500">Formato inválido.</p>;
+              } catch {
+                return (
+                  <a
+                    href={l.certificatesUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-navy-700 hover:bg-gray-50"
+                  >
+                    <FileText className="size-4 shrink-0" aria-hidden />
+                    Ver certificados
+                    <ExternalLink className="size-3 shrink-0" aria-hidden />
+                  </a>
+                );
+              }
+            })()}
           </section>
 
           {/* Casos recientes */}

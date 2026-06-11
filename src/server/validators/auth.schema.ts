@@ -32,6 +32,13 @@ const documentFileSchema = z
     { message: "Formato no permitido. Usa PDF, JPG o PNG" },
   );
 
+export const certificateSchema = z.object({
+  name: z.string(),
+  url: z.string().url(),
+  size: z.number(),
+  type: z.string(),
+});
+
 // -- Login --------------------------------------------------------------------
 
 export const loginSchema = z.object({
@@ -160,6 +167,7 @@ export const registerLawyerApiSchema = z
       .min(1)
       .regex(/^[A-Za-z0-9-]+$/, { message: "Solo letras, números y guiones" }),
     specialties: z.array(z.enum(SPECIALTY_CODES)).min(1),
+    certificates: z.array(certificateSchema).optional(),
     password: z
       .string()
       .regex(PASSWORD_REGEX, { message: PASSWORD_MESSAGE }),
