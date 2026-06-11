@@ -164,7 +164,7 @@ async function main() {
     });
 
     // Si el estado es asignado o posterior, crear asignación
-    const isAssigned = [CaseStatus.asignado, CaseStatus.en_negociacion, CaseStatus.cerrado_ganado, CaseStatus.cerrado_perdido].includes(status);
+    const isAssigned = [CaseStatus.asignado, CaseStatus.en_negociacion, CaseStatus.cerrado_ganado, CaseStatus.cerrado_perdido].includes(status as any);
     
     if (isAssigned) {
       const lawyer = faker.helpers.arrayElement(lawyers); // Toma uno de los abogados aprobados
@@ -175,8 +175,8 @@ async function main() {
           caseId: newCase.id,
           lawyerId: lawyer.id,
           assignedAt: assignmentDate,
-          isActive: [CaseStatus.asignado, CaseStatus.en_negociacion].includes(status),
-          releasedAt: [CaseStatus.cerrado_ganado, CaseStatus.cerrado_perdido].includes(status) ? faker.date.recent() : null,
+          isActive: [CaseStatus.asignado, CaseStatus.en_negociacion].includes(status as any),
+          releasedAt: [CaseStatus.cerrado_ganado, CaseStatus.cerrado_perdido].includes(status as any) ? faker.date.recent() : null,
         }
       });
 
@@ -192,7 +192,7 @@ async function main() {
         }
       });
 
-      if ([CaseStatus.cerrado_ganado, CaseStatus.cerrado_perdido].includes(status)) {
+      if ([CaseStatus.cerrado_ganado, CaseStatus.cerrado_perdido].includes(status as any)) {
          await prisma.caseStatusHistory.create({
            data: {
              caseId: newCase.id,
