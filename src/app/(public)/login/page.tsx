@@ -53,8 +53,9 @@ export default function LoginPage() {
 
       const role = json.data.user.role as "client" | "lawyer" | "admin";
       toast.success("Sesión iniciada");
-      router.push(homeForRole(role));
-      router.refresh();
+      
+      // Forzar recarga completa para evitar el caché agresivo del App Router de Next.js
+      window.location.href = homeForRole(role);
     } catch {
       toast.error("Error de red. Intenta de nuevo.");
     }
