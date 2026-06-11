@@ -25,7 +25,9 @@ export async function POST(req: NextRequest) {
         "Si el email existe, recibirás instrucciones para restablecer tu contraseña.",
     };
 
-    if (process.env.NODE_ENV !== "production" && token) {
+    // FIXME: Agregar servicio de envío de correos (Resend, SendGrid, etc).
+    // Por ahora siempre devolvemos el devToken para poder testear en Vercel.
+    if (token) {
       response.devToken = token;
     }
 
