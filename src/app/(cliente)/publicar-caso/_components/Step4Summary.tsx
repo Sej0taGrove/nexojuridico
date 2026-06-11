@@ -8,6 +8,7 @@ import {
   Scale,
   Send,
   ShieldCheck,
+  FileText,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -117,7 +118,25 @@ export function Step4Summary({
               Documentación disponible
             </h3>
             <p className="mt-1 text-sm text-gray-900">
-              {data.responses.hasDocuments ? "Sí" : "No"}
+              {data.responses.hasDocuments ? (
+                data.responses.documents && data.responses.documents.length > 0 ? (
+                  <ul className="mt-2 flex flex-col gap-2">
+                    {data.responses.documents.map((doc, idx) => (
+                      <li key={idx} className="flex items-center gap-2 rounded-md bg-gray-50 p-2 text-sm border border-gray-100">
+                        <FileText className="size-4 text-navy-500 shrink-0" />
+                        <a href={doc.url} target="_blank" rel="noreferrer" className="truncate text-navy-600 hover:underline" title={doc.name}>
+                          {doc.name}
+                        </a>
+                        <span className="text-xs text-gray-400">({(doc.size / 1024 / 1024).toFixed(2)} MB)</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  "Sí (Sin archivos adjuntos)"
+                )
+              ) : (
+                "No"
+              )}
             </p>
           </div>
           <div className="border-t border-gray-100 pt-4">

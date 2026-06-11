@@ -1,6 +1,5 @@
-"use client";
-
-import { ArrowLeft, ArrowRight, Calendar } from "lucide-react";
+import { useState } from "react";
+import { ArrowLeft, ArrowRight, Calendar, Loader2, FileText, Trash2, Paperclip } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -34,6 +33,9 @@ export function Step2Form({
   onBack: () => void;
   onNext: () => void;
 }) {
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+
   const description = values.description ?? "";
   const descriptionLength = description.trim().length;
 
@@ -42,6 +44,73 @@ export function Step2Form({
     !!values.occurredAt &&
     typeof values.hasDocuments === "boolean" &&
     descriptionLength >= 50;
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+
+    setUploadError("");
+
+    for (const file of files) {
+      if (file.size > 5 * 1024 * 1024) {
+        setUploadError(`El archivo ${file.name} supera los 5MB permitidos.`);
+        return;
+      }
+    }
+
+    if ((values.documents?.length || 0) + files.length > 5) {
+      setUploadError("Máximo 5 archivos permitidos por caso.");
+      return;
+    }
+
+    setIsUploading(true);
+
+    try {
+      const { supabase } = await import("@/lib/supabase-client");
+      const newDocs = [];
+
+      for (const file of files) {
+        const fileExt = file.name.split(".").pop();
+        const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
+
+        const { error } = await supabase.storage
+          .from("case-documents")
+          .upload(fileName, file);
+
+        if (error) {
+          console.error("Supabase error:", error);
+          throw new Error("No se pudo subir a Supabase. ¿Creaste el bucket?");
+        }
+
+        const { data: urlData } = supabase.storage
+          .from("case-documents")
+          .getPublicUrl(fileName);
+
+        newDocs.push({
+          url: urlData.publicUrl,
+          name: file.name,
+          size: file.size,
+          type: file.type || "application/octet-stream",
+        });
+      }
+
+      onChange({
+        documents: [...(values.documents || []), ...newDocs],
+      });
+    } catch (err: any) {
+      console.error(err);
+      setUploadError(err.message || "Error al subir los archivos. Verifica tu conexión o la configuración de Supabase.");
+    } finally {
+      setIsUploading(false);
+      if (e.target) e.target.value = "";
+    }
+  };
+
+  const removeDocument = (index: number) => {
+    const newDocs = [...(values.documents || [])];
+    newDocs.splice(index, 1);
+    onChange({ documents: newDocs });
+  };
 
   return (
     <div className="flex flex-col gap-8">
@@ -112,41 +181,99 @@ export function Step2Form({
         </div>
 
         {/* Documentación */}
-        <div className="mb-6 flex items-start justify-between gap-6 border-t border-gray-200 pt-6">
-          <div>
-            <Label className="block text-sm font-semibold text-gray-700">
-              ¿Tienes documentación relacionada?
-            </Label>
-            <p className="mt-1 text-xs text-gray-500">
-              Contratos, correos, fotos u otros documentos relevantes.
-            </p>
+        <div className="mb-6 border-t border-gray-200 pt-6">
+          <div className="flex items-start justify-between gap-6 mb-4">
+            <div>
+              <Label className="block text-sm font-semibold text-gray-700">
+                ¿Tienes documentación relacionada?
+              </Label>
+              <p className="mt-1 text-xs text-gray-500">
+                Contratos, correos, fotos u otros documentos relevantes.
+              </p>
+            </div>
+            <RadioGroup
+              value={
+                values.hasDocuments == null
+                  ? ""
+                  : values.hasDocuments
+                    ? "yes"
+                    : "no"
+              }
+              onValueChange={(v) => onChange({ hasDocuments: v === "yes" })}
+              className="flex shrink-0 gap-2"
+            >
+              <Label
+                htmlFor="docs-yes"
+                className="cursor-pointer rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 has-[[data-state=checked]]:border-navy-600 has-[[data-state=checked]]:bg-navy-50 has-[[data-state=checked]]:text-navy-700"
+              >
+                <RadioGroupItem id="docs-yes" value="yes" className="sr-only" />
+                Sí
+              </Label>
+              <Label
+                htmlFor="docs-no"
+                className="cursor-pointer rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 has-[[data-state=checked]]:border-navy-600 has-[[data-state=checked]]:bg-navy-50 has-[[data-state=checked]]:text-navy-700"
+              >
+                <RadioGroupItem id="docs-no" value="no" className="sr-only" />
+                No
+              </Label>
+            </RadioGroup>
           </div>
-          <RadioGroup
-            value={
-              values.hasDocuments == null
-                ? ""
-                : values.hasDocuments
-                  ? "yes"
-                  : "no"
-            }
-            onValueChange={(v) => onChange({ hasDocuments: v === "yes" })}
-            className="flex shrink-0 gap-2"
-          >
-            <Label
-              htmlFor="docs-yes"
-              className="cursor-pointer rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 has-[[data-state=checked]]:border-navy-600 has-[[data-state=checked]]:bg-navy-50 has-[[data-state=checked]]:text-navy-700"
-            >
-              <RadioGroupItem id="docs-yes" value="yes" className="sr-only" />
-              Sí
-            </Label>
-            <Label
-              htmlFor="docs-no"
-              className="cursor-pointer rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 has-[[data-state=checked]]:border-navy-600 has-[[data-state=checked]]:bg-navy-50 has-[[data-state=checked]]:text-navy-700"
-            >
-              <RadioGroupItem id="docs-no" value="no" className="sr-only" />
-              No
-            </Label>
-          </RadioGroup>
+
+          {values.hasDocuments && (
+            <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4">
+              <div className="flex flex-col items-center text-center">
+                <Paperclip className="mb-2 size-6 text-gray-400" />
+                <Label
+                  htmlFor="file-upload"
+                  className="cursor-pointer font-medium text-navy-600 hover:text-navy-700 hover:underline"
+                >
+                  Seleccionar archivos
+                  <input
+                    id="file-upload"
+                    type="file"
+                    className="sr-only"
+                    multiple
+                    accept="image/*,audio/*,.pdf,.doc,.docx"
+                    onChange={handleFileUpload}
+                    disabled={isUploading || (values.documents?.length || 0) >= 5}
+                  />
+                </Label>
+                <p className="text-xs text-gray-500 mt-1">
+                  PDF, DOC, JPG, PNG o MP3. Máx 5MB c/u.
+                </p>
+                {uploadError && (
+                  <p className="mt-2 text-sm font-medium text-danger-600">{uploadError}</p>
+                )}
+                {isUploading && (
+                  <div className="mt-4 flex items-center gap-2 text-sm text-gray-600">
+                    <Loader2 className="size-4 animate-spin" /> Subiendo archivo(s)...
+                  </div>
+                )}
+              </div>
+
+              {values.documents && values.documents.length > 0 && (
+                <ul className="mt-4 flex flex-col gap-2">
+                  {values.documents.map((doc, idx) => (
+                    <li key={idx} className="flex items-center justify-between rounded-md bg-white p-2 text-sm shadow-sm border border-gray-100">
+                      <div className="flex items-center gap-2 truncate">
+                        <FileText className="size-4 text-navy-500 shrink-0" />
+                        <span className="truncate text-gray-700" title={doc.name}>{doc.name}</span>
+                        <span className="text-xs text-gray-400">({(doc.size / 1024 / 1024).toFixed(2)} MB)</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeDocument(idx)}
+                        className="p-1 text-gray-400 hover:text-danger-600 transition-colors"
+                        aria-label="Eliminar archivo"
+                      >
+                        <Trash2 className="size-4" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Descripción */}
@@ -185,7 +312,7 @@ export function Step2Form({
           <ArrowLeft className="size-4" aria-hidden />
           Atrás
         </Button>
-        <Button size="lg" onClick={onNext} disabled={!isValid}>
+        <Button size="lg" onClick={onNext} disabled={!isValid || isUploading}>
           Continuar
           <ArrowRight className="size-4" aria-hidden />
         </Button>
@@ -193,3 +320,4 @@ export function Step2Form({
     </div>
   );
 }
+

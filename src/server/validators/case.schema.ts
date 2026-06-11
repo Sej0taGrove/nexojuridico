@@ -2,6 +2,14 @@ import { z } from "zod";
 
 import { CHILE_REGIONS } from "@/lib/constants/regions";
 
+export const documentSchema = z.object({
+  url: z.string().url(),
+  name: z.string(),
+  size: z.number(),
+  type: z.string(),
+});
+
+
 export const SITUATION_OPTIONS = [
   "conflicto",
   "consulta",
@@ -32,6 +40,7 @@ export const createCaseResponsesSchema = z.object({
     .trim()
     .min(50, { message: "Mínimo 50 caracteres" })
     .max(4000, { message: "Máximo 4000 caracteres" }),
+  documents: z.array(documentSchema).optional(),
 });
 
 export type CreateCaseResponses = z.infer<typeof createCaseResponsesSchema>;
