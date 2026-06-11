@@ -65,7 +65,12 @@ export default function RegistroAbogadoPage() {
 
     try {
       const { supabase } = await import("@/lib/supabase-client");
-      const uploadedCerts = [];
+      const uploadedCerts: Array<{
+        name: string;
+        url: string;
+        size: number;
+        type: string;
+      }> = [];
 
       // Función auxiliar para subir a Supabase
       const uploadFile = async (file: File, prefix: string) => {
