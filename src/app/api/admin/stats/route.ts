@@ -54,81 +54,77 @@ export async function GET() {
 
   const tenantWhere = { tenantId: auth.tenantId, deletedAt: null };
 
-  // KPIs en paralelo donde es posible
-  const [
-    casesToday,
-    casesWeek,
-    activeLawyers,
-    publishedTotal,
-    takenTotal,
-    orphanCount,
-    assignmentsForMatch,
-    casesBySpecialty,
-    publishedRecent,
-    takenRecent,
-  ] = await Promise.all([
-    prisma.case.count({
-      where: {
-        ...tenantWhere,
-        createdAt: { gte: startOfToday },
-        status: { not: CaseStatus.borrador },
-      },
-    }),
-    prisma.case.count({
-      where: {
-        ...tenantWhere,
-        createdAt: { gte: sevenDaysAgo },
-        status: { not: CaseStatus.borrador },
-      },
-    }),
-    prisma.lawyerProfile.count({
-      where: {
-        validationStatus: ValidationStatus.approved,
-        user: { tenantId: auth.tenantId, deletedAt: null, isActive: true },
-      },
-    }),
-    prisma.case.count({
-      where: { ...tenantWhere, status: { in: [...PUBLISHED_STATUSES] } },
-    }),
-    prisma.case.count({
-      where: { ...tenantWhere, status: { in: [...TAKEN_STATUSES] } },
-    }),
-    prisma.case.count({
-      where: {
-        ...tenantWhere,
-        OR: [
-          { status: CaseStatus.huerfano },
-          { status: CaseStatus.en_cola, createdAt: { lt: sevenDaysAgo } }
-        ]
-      },
-    }),
-    prisma.caseAssignment.findMany({
-      where: { case: tenantWhere },
-      select: {
-        assignedAt: true,
-        case: { select: { createdAt: true, publishedAt: true } },
-      },
-    }),
-    prisma.case.groupBy({
-      by: ["specialtyId"],
-      where: { ...tenantWhere, status: { not: CaseStatus.borrador } },
-      _count: { _all: true },
-    }),
-    prisma.case.findMany({
-      where: {
-        ...tenantWhere,
-        publishedAt: { gte: thirtyDaysAgo },
-      },
-      select: { publishedAt: true },
-    }),
-    prisma.caseAssignment.findMany({
-      where: {
-        case: tenantWhere,
-        assignedAt: { gte: thirtyDaysAgo },
-      },
-      select: { assignedAt: true },
-    }),
-  ]);
+  // Ejecutamos secuencialmente para no saturar el límite de conexiones de Neon Serverless (EMAXCONNSESSION)
+  const casesToday = await prisma.case.count({
+    where: {
+      ...tenantWhere,
+      createdAt: { gte: startOfToday },
+      status: { not: CaseStatus.borrador },
+    },
+  });
+
+  const casesWeek = await prisma.case.count({
+    where: {
+      ...tenantWhere,
+      createdAt: { gte: sevenDaysAgo },
+      status: { not: CaseStatus.borrador },
+    },
+  });
+
+  const activeLawyers = await prisma.lawyerProfile.count({
+    where: {
+      validationStatus: ValidationStatus.approved,
+      user: { tenantId: auth.tenantId, deletedAt: null, isActive: true },
+    },
+  });
+
+  const publishedTotal = await prisma.case.count({
+    where: { ...tenantWhere, status: { in: [...PUBLISHED_STATUSES] } },
+  });
+
+  const takenTotal = await prisma.case.count({
+    where: { ...tenantWhere, status: { in: [...TAKEN_STATUSES] } },
+  });
+
+  const orphanCount = await prisma.case.count({
+    where: {
+      ...tenantWhere,
+      OR: [
+        { status: CaseStatus.huerfano },
+        { status: CaseStatus.en_cola, createdAt: { lt: sevenDaysAgo } }
+      ]
+    },
+  });
+
+  const assignmentsForMatch = await prisma.caseAssignment.findMany({
+    where: { case: tenantWhere },
+    select: {
+      assignedAt: true,
+      case: { select: { createdAt: true, publishedAt: true } },
+    },
+  });
+
+  const casesBySpecialty = await prisma.case.groupBy({
+    by: ["specialtyId"],
+    where: { ...tenantWhere, status: { not: CaseStatus.borrador } },
+    _count: { _all: true },
+  });
+
+  const publishedRecent = await prisma.case.findMany({
+    where: {
+      ...tenantWhere,
+      publishedAt: { gte: thirtyDaysAgo },
+    },
+    select: { publishedAt: true },
+  });
+
+  const takenRecent = await prisma.caseAssignment.findMany({
+    where: {
+      case: tenantWhere,
+      assignedAt: { gte: thirtyDaysAgo },
+    },
+    select: { assignedAt: true },
+  });
 
   const takeRate =
     publishedTotal > 0 ? (takenTotal / publishedTotal) * 100 : 0;

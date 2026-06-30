@@ -51,48 +51,45 @@ export async function GET(req: NextRequest) {
   const where: Prisma.LawyerProfileWhereInput = { user: userWhere };
   if (status) where.validationStatus = status;
 
-  // Counts por tab (siempre, para mostrarlos arriba)
-  const [pending, approved, rejected, suspended, lawyers] = await Promise.all([
-    prisma.lawyerProfile.count({
-      where: { user: userWhere, validationStatus: ValidationStatus.pending },
-    }),
-    prisma.lawyerProfile.count({
-      where: { user: userWhere, validationStatus: ValidationStatus.approved },
-    }),
-    prisma.lawyerProfile.count({
-      where: { user: userWhere, validationStatus: ValidationStatus.rejected },
-    }),
-    prisma.lawyerProfile.count({
-      where: { user: userWhere, validationStatus: ValidationStatus.suspended },
-    }),
-    prisma.lawyerProfile.findMany({
-      where,
-      orderBy: { user: { createdAt: "desc" } },
-      take: 200,
-      select: {
-        userId: true,
-        validationStatus: true,
-        validatedAt: true,
-        certificatesUrl: true,
-        casesTakenCount: true,
-        user: {
-          select: {
-            firstName: true,
-            lastName: true,
-            email: true,
-            rut: true,
-            phone: true,
-            createdAt: true,
-          },
-        },
-        specialties: {
-          select: {
-            specialty: { select: { id: true, code: true, name: true } },
-          },
+  // Counts por tab (secuencial para no saturar el pool de Neon Serverless)
+  const pending = await prisma.lawyerProfile.count({
+    where: { user: userWhere, validationStatus: ValidationStatus.pending },
+  });
+  const approved = await prisma.lawyerProfile.count({
+    where: { user: userWhere, validationStatus: ValidationStatus.approved },
+  });
+  const rejected = await prisma.lawyerProfile.count({
+    where: { user: userWhere, validationStatus: ValidationStatus.rejected },
+  });
+  const suspended = await prisma.lawyerProfile.count({
+    where: { user: userWhere, validationStatus: ValidationStatus.suspended },
+  });
+  const lawyers = await prisma.lawyerProfile.findMany({
+    where,
+    orderBy: { user: { createdAt: "desc" } },
+    take: 200,
+    select: {
+      userId: true,
+      validationStatus: true,
+      validatedAt: true,
+      certificatesUrl: true,
+      casesTakenCount: true,
+      user: {
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          rut: true,
+          phone: true,
+          createdAt: true,
         },
       },
-    }),
-  ]);
+      specialties: {
+        select: { specialty: { select: { id: true, code: true, name: true } } },
+      },
+    },
+  });
 
   const items: AdminLawyerListItem[] = lawyers.map((l) => ({
     id: l.userId,
