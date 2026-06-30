@@ -43,8 +43,10 @@ export async function GET(req: NextRequest) {
   const where: Prisma.CaseWhereInput = {
     tenantId: auth.tenantId,
     deletedAt: null,
-    status: CaseStatus.en_cola,
-    createdAt: { lt: sevenDaysAgo },
+    OR: [
+      { status: CaseStatus.huerfano },
+      { status: CaseStatus.en_cola, createdAt: { lt: sevenDaysAgo } }
+    ]
   };
   if (Number.isFinite(specialtyId)) where.specialtyId = specialtyId;
   if (urgency) where.urgency = urgency;
@@ -110,8 +112,10 @@ export async function GET(req: NextRequest) {
     where: {
       tenantId: auth.tenantId,
       deletedAt: null,
-      status: CaseStatus.en_cola,
-      createdAt: { lt: sevenDaysAgo },
+      OR: [
+        { status: CaseStatus.huerfano },
+        { status: CaseStatus.en_cola, createdAt: { lt: sevenDaysAgo } }
+      ]
     },
     select: {
       createdAt: true,

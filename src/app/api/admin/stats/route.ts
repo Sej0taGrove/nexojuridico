@@ -96,8 +96,10 @@ export async function GET() {
     prisma.case.count({
       where: {
         ...tenantWhere,
-        status: CaseStatus.en_cola,
-        createdAt: { lt: sevenDaysAgo },
+        OR: [
+          { status: CaseStatus.huerfano },
+          { status: CaseStatus.en_cola, createdAt: { lt: sevenDaysAgo } }
+        ]
       },
     }),
     prisma.caseAssignment.findMany({

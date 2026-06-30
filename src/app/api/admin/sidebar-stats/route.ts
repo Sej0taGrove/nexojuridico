@@ -20,8 +20,10 @@ export async function GET() {
     where: {
       tenantId: auth.tenantId,
       deletedAt: null,
-      status: CaseStatus.en_cola,
-      createdAt: { lt: sevenDaysAgo },
+      OR: [
+        { status: CaseStatus.huerfano },
+        { status: CaseStatus.en_cola, createdAt: { lt: sevenDaysAgo } }
+      ]
     },
   });
 
